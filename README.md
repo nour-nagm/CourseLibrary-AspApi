@@ -7,6 +7,7 @@ My practice on Building a RESTful API with ASP.NET Core 3 course on Pluralsight 
 ## Used Technologies
 - .NET 5 (C# 9)
 - ASP.NET Core
+- Entity Framework Core
 
 ## Helper Tools
 - Postman
