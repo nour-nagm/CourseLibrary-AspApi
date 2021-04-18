@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CourseLibrary.API.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,6 +13,7 @@ namespace CourseLibrary.API.Models
         public string Name { get; set; }
         public int Age { get; set; }
         public string MainCategory { get; set; }
+        public ICollection<Course> Courses { get; set; } = new List<Course>();
 
     }
 }
