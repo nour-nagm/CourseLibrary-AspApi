@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using CourseLibrary.API.ValidationAttributes;
+using System.ComponentModel.DataAnnotations;
 
 namespace CourseLibrary.API.Models
 {
