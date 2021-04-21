@@ -62,5 +62,32 @@ namespace CourseLibrary.API.Controllers
                 new { authorId, courseId = courseToReturn.Id },
                 courseToReturn);
         }
+
+        [HttpPut("{courseId}")]
+        public ActionResult<CourseDto> UpdateCourseForAuthor(Guid authorId, Guid courseId,
+            CourseForUpdateDto course)
+        {
+            if (!repository.AuthorExists(authorId))
+                return NotFound();
+
+            var courseForAuthorFromRepo = repository.GetCourse(authorId, courseId);
+
+            if (courseForAuthorFromRepo == null)
+                return NotFound();
+
+            // map the entity to a CourseForUpdateDto
+            // apply the updated field values to the dto
+            // map the CourseForUpdateDto back to an entity
+            mapper.Map(course, courseForAuthorFromRepo);
+            
+            repository.UpdateCourse(courseForAuthorFromRepo);
+
+            repository.Save();
+            
+            return Ok(mapper.Map<CourseDto>(courseForAuthorFromRepo));
+            //or
+            // return NoContent(); 204 status code with return type of ActionResult
+        }
+
     }
 }

@@ -62,6 +62,8 @@ namespace CourseLibrary.API.Services
         public void UpdateCourse(Course course)
         {
             // no code in this implementation
+            // entity was already marked modified when we mapped from dto to entity
+            // calling SaveChanges() will write the changes to the database 
         }
 
         public void DeleteCourse(Course course)
