@@ -2,7 +2,12 @@ using AutoMapper;
 using CourseLibrary.API.Entities;
 using CourseLibrary.API.Models;
 using CourseLibrary.API.Services;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 
@@ -64,7 +69,7 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpPut("{courseId}")]
-        public ActionResult<CourseDto> UpdateCourseForAuthor(Guid authorId, Guid courseId,
+        public IActionResult UpdateCourseForAuthor(Guid authorId, Guid courseId,
             CourseForUpdateDto course)
         {
             if (!repository.AuthorExists(authorId))
@@ -72,8 +77,20 @@ namespace CourseLibrary.API.Controllers
 
             var courseForAuthorFromRepo = repository.GetCourse(authorId, courseId);
 
+            // if the course not found, new resource will be created (upserting with PUT)
             if (courseForAuthorFromRepo == null)
-                return NotFound();
+            {
+                var courseToAdd = mapper.Map<Course>(course);
+                courseToAdd.Id = courseId;
+
+                repository.AddCourse(authorId, courseToAdd);
+                repository.Save();
+
+                var courseToReturn = mapper.Map<CourseDto>(courseToAdd);
+                return CreatedAtRoute("GetCourseForAuthor",
+                    new { authorId, courseId = courseToAdd.Id },
+                    courseToReturn);
+            }
 
             // map the entity to a CourseForUpdateDto
             // apply the updated field values to the dto
@@ -83,11 +100,79 @@ namespace CourseLibrary.API.Controllers
             repository.UpdateCourse(courseForAuthorFromRepo);
 
             repository.Save();
-            
-            return Ok(mapper.Map<CourseDto>(courseForAuthorFromRepo));
+
+            //return Ok(mapper.Map<CourseDto>(courseForAuthorFromRepo));
+
             //or
             // return NoContent(); 204 status code with return type of ActionResult
+            // both are valid
+
+            return NoContent();
+
+
+            //return Ok(new
+            //{
+            //    Message = "No updates has happend",
+            //    CourseDetails = mapper.Map<CourseDto>(courseForAuthorFromRepo)
+            //});
         }
 
+        [HttpPatch("{courseId}")]
+        public ActionResult PartiallyUpdateCourseForAuthor(Guid authorId,
+            Guid courseId,
+            JsonPatchDocument<CourseForUpdateDto> patchDocument)
+        {
+            if (!repository.AuthorExists(authorId))
+                return NotFound();
+
+            var courseForAuthorFromRepo = repository.GetCourse(authorId, courseId);
+
+            // if the course not found, new resource will be created (upserting with PATCH)
+            if (courseForAuthorFromRepo == null)
+            {
+                var courseDto = new CourseForUpdateDto();
+                patchDocument.ApplyTo(courseDto, ModelState);
+
+                if (!TryValidateModel(courseDto))
+                    return ValidationProblem(ModelState);
+
+                var courseToAdd = mapper.Map<Course>(courseDto);
+                courseToAdd.Id = courseId;
+
+
+                repository.AddCourse(authorId, courseToAdd);
+                repository.Save();
+
+                var courseToReturn = mapper.Map<CourseDto>(courseToAdd);
+                CreatedAtRoute("GetCourseForAuthor",
+                    new { authorId, courseId = courseToReturn.Id },
+                    courseToReturn);
+            }
+
+            var courseToPatch = mapper.Map<CourseForUpdateDto>(courseForAuthorFromRepo);
+            
+            patchDocument.ApplyTo(courseToPatch, ModelState);
+
+            if (!TryValidateModel(courseToPatch))
+                return ValidationProblem(ModelState);
+
+            mapper.Map(courseToPatch, courseForAuthorFromRepo);
+
+            repository.UpdateCourse(courseForAuthorFromRepo);
+            repository.Save();
+
+            return NoContent();
+        }
+
+        public override ActionResult ValidationProblem(
+            [ActionResultObjectValue] ModelStateDictionary modelStateDictionary)
+        {
+            var options = HttpContext.RequestServices
+                .GetRequiredService<IOptions<ApiBehaviorOptions>>();
+
+            return (ActionResult)options.Value.InvalidModelStateResponseFactory(ControllerContext);
+
+            //return base.ValidationProblem(modelStateDictionary);
+        }
     }
 }
