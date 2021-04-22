@@ -17,7 +17,7 @@ namespace CourseLibrary.API.Controllers
     [Route("api/authors/{authorId}/courses")]
     public class CoursesController : ControllerBase
     {
-         private readonly ICourseLibraryRepository repository;
+        private readonly ICourseLibraryRepository repository;
         private readonly IMapper mapper;
 
         public CoursesController(ICourseLibraryRepository repository, IMapper mapper)
@@ -159,6 +159,23 @@ namespace CourseLibrary.API.Controllers
             mapper.Map(courseToPatch, courseForAuthorFromRepo);
 
             repository.UpdateCourse(courseForAuthorFromRepo);
+            repository.Save();
+
+            return NoContent();
+        }
+
+        [HttpDelete("{courseId}")]
+        public ActionResult DeleteCourseForAuthor(Guid authorId, Guid courseId)
+        {
+            if (!repository.AuthorExists(authorId))
+                return NotFound();
+
+            var courseForAuthorFromRepo = repository.GetCourse(authorId, courseId);
+
+            if (courseForAuthorFromRepo == null)
+                return NotFound();
+
+            repository.DeleteCourse(courseForAuthorFromRepo);
             repository.Save();
 
             return NoContent();

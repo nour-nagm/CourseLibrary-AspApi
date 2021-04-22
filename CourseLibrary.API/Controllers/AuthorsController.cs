@@ -56,6 +56,22 @@ namespace CourseLibrary.API.Controllers
                 authorToReturn);
         }
 
+        [HttpDelete("{authorId}")]
+        public ActionResult DeleteAuthor (Guid authorId)
+        {
+            var authorFromRepo = repository.GetAuthor(authorId);
+
+            if (authorFromRepo == null)
+                return NotFound();
+
+            // CascadeOnDelete is on bt default; when we delete a author, his/her courses
+            // will be deleted as will
+            repository.DeleteAuthor(authorFromRepo);
+            repository.Save();
+
+            return NoContent();
+        }
+
         [HttpOptions]
         public IActionResult GetAuthorsOptions()
         {
