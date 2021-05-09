@@ -9,7 +9,8 @@ My practice on **Building a RESTful API with ASP.NET Core 3** and **Implementing
 ## Links 
 - [First Course Page](https://www.pluralsight.com/courses/asp-dot-net-core-3-restful-api-building)
 - [Second Course Page](https://app.pluralsight.com/library/courses/asp-dot-net-core-3-advanced-restful-concerns/table-of-contents)
-- [Solution Repository](https://github.com/KevinDockx/BuildingRESTfulAPIAspNetCore3)
+- [Solution Repository for First Course](https://github.com/KevinDockx/BuildingRESTfulAPIAspNetCore3)
+- [Solution Repository for Second Course](https://github.com/KevinDockx/ImplementingAdvancedRESTfulConcernsAspNetCore3)
 
 ## Used Technologies
 - .NET 5 (C# 9)
