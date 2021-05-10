@@ -14,10 +14,10 @@ namespace CourseLibrary.API.Helpers
         public bool HasPrevious => CurrentPage > 1;
         public bool HasNext => CurrentPage < TotalPages;
 
-        public PagedList(List<T> items, int count, int pageNumber, int pageSize)
+        private PagedList(List<T> items, int count, int pageNumber, int pageSize)
         {
             TotalCount = count;
-            PageSize = pageSize;
+            PageSize = pageSize;   
             CurrentPage = pageNumber;
             TotalPages = (int)Math.Ceiling(count / (double)pageSize);
             AddRange(items);

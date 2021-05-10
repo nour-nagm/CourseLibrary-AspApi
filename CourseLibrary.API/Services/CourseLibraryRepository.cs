@@ -1,6 +1,7 @@
 ﻿using CourseLibrary.API.DbContexts;
 using CourseLibrary.API.Entities;
 using CourseLibrary.API.Helpers;
+using CourseLibrary.API.Models;
 using CourseLibrary.API.ResourceParameters;
 using System;
 using System.Collections.Generic;
@@ -10,10 +11,15 @@ namespace CourseLibrary.API.Services
     public class CourseLibraryRepository : ICourseLibraryRepository, IDisposable
     {
         private readonly CourseLibraryContext context;
+        private readonly IPropertyMappingService propertyMappingService;
 
-        public CourseLibraryRepository(CourseLibraryContext context)
+        public CourseLibraryRepository(CourseLibraryContext context,
+            IPropertyMappingService propertyMappingService)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context)); ;
+            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            
+            this.propertyMappingService = propertyMappingService
+                ?? throw new ArgumentNullException(nameof(context));
         }
 
         public IEnumerable<Course> GetCourses(Guid authorId)
@@ -113,18 +119,28 @@ namespace CourseLibrary.API.Services
 
             var collection = context.Authors as IQueryable<Author>;
 
-            if(!string.IsNullOrWhiteSpace(resourceParameters.MainCategory))
+            if (!string.IsNullOrWhiteSpace(resourceParameters.MainCategory))
             {
                 var mainCategory = resourceParameters.MainCategory.Trim();
                 collection = collection.Where(a => a.MainCategory == mainCategory);
             }
 
-            if(!string.IsNullOrWhiteSpace(resourceParameters.SearchQuery))
+            if (!string.IsNullOrWhiteSpace(resourceParameters.SearchQuery))
             {
                 var searchQuery = resourceParameters.SearchQuery.Trim();
                 collection = collection.Where(a => a.MainCategory.Contains(searchQuery)
                     || a.FirstName.Contains(searchQuery)
                     || a.LastName.Contains(searchQuery));
+            }
+
+            if (!string.IsNullOrWhiteSpace(resourceParameters.OrderBy))
+            {
+                // get property mapping dictionary
+                var authorProperttMappingDictionary =
+                    propertyMappingService.GetPropertyMapping<AuthorDto, Author>();
+
+                collection = collection.ApplySort(resourceParameters.OrderBy,
+                    authorProperttMappingDictionary);
             }
 
             return PagedList<Author>.Create(collection,
