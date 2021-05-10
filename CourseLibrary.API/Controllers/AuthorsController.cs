@@ -17,13 +17,20 @@ namespace CourseLibrary.API.Controllers
     {
         private readonly ICourseLibraryRepository repository;
         private readonly IMapper mapper;
+        private readonly IPropertyMappingService propertyMappingService;
 
-        public AuthorsController(ICourseLibraryRepository repository, IMapper mapper)
+        public AuthorsController(ICourseLibraryRepository repository,
+            IMapper mapper,
+            IPropertyMappingService propertyMappingService)
         {
-            this.repository = repository ?? 
+            this.repository = repository ??
                 throw new ArgumentNullException(nameof(repository));
+
             this.mapper = mapper ??
                 throw new ArgumentNullException(nameof(mapper));
+
+            this.propertyMappingService = propertyMappingService ??
+                throw new ArgumentNullException(nameof(propertyMappingService));
         }
 
         [HttpGet(Name = "GetAuthors")]
@@ -31,6 +38,12 @@ namespace CourseLibrary.API.Controllers
         public ActionResult<IEnumerable<AuthorDto>> GetAuthors(
             [FromQuery] AuthorResourceParameters resourceParameters)
         {
+            if (!propertyMappingService.ValidMappingExistsFor<AuthorDto, Author>
+                (resourceParameters.OrderBy))
+            {
+                return BadRequest();
+            }
+
             var authorsFromRepo = repository.GetAuthors(resourceParameters);
 
             var previousPageLink = authorsFromRepo.HasPrevious ?
@@ -59,7 +72,7 @@ namespace CourseLibrary.API.Controllers
 
         [HttpGet]
         [Route("{authorId:guid}", Name = "GetAuthor")]
-        public IActionResult GetAuthors(Guid authorId) 
+        public IActionResult GetAuthors(Guid authorId)
         {
             var authorFromRepo = repository.GetAuthor(authorId);
 
@@ -80,7 +93,7 @@ namespace CourseLibrary.API.Controllers
         }
 
         [HttpDelete("{authorId}")]
-        public ActionResult DeleteAuthor (Guid authorId)
+        public ActionResult DeleteAuthor(Guid authorId)
         {
             var authorFromRepo = repository.GetAuthor(authorId);
 
@@ -112,26 +125,29 @@ namespace CourseLibrary.API.Controllers
                     return Url.Link("GetAuthors",
                         new
                         {
+                            orderBy = resourceParameters.OrderBy,
                             pageNumber = resourceParameters.PageNumber - 1,
                             pageSize = resourceParameters.PageSize,
                             mainCategory = resourceParameters.MainCategory,
                             searchQuery = resourceParameters.SearchQuery
-                        });
-                
+                        }); ;
+
                 case ResourseUriType.NextPage:
                     return Url.Link("GetAuthors",
                         new
                         {
+                            orderBy = resourceParameters.OrderBy,
                             pageNumber = resourceParameters.PageNumber + 1,
                             pageSize = resourceParameters.PageSize,
                             mainCategory = resourceParameters.MainCategory,
                             searchQuery = resourceParameters.SearchQuery
                         });
-                
+
                 default:
                     return Url.Link("GetAuthors",
                          new
                          {
+                             orderBy = resourceParameters.OrderBy,
                              pageNumber = resourceParameters.PageNumber,
                              pageSize = resourceParameters.PageSize,
                              mainCategory = resourceParameters.MainCategory,
