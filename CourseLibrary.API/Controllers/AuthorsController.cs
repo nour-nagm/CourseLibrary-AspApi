@@ -18,10 +18,12 @@ namespace CourseLibrary.API.Controllers
         private readonly ICourseLibraryRepository repository;
         private readonly IMapper mapper;
         private readonly IPropertyMappingService propertyMappingService;
+        private readonly IPropertyCheckerService propertyCheckerService;
 
         public AuthorsController(ICourseLibraryRepository repository,
             IMapper mapper,
-            IPropertyMappingService propertyMappingService)
+            IPropertyMappingService propertyMappingService,
+            IPropertyCheckerService propertyCheckerService)
         {
             this.repository = repository ??
                 throw new ArgumentNullException(nameof(repository));
@@ -31,15 +33,24 @@ namespace CourseLibrary.API.Controllers
 
             this.propertyMappingService = propertyMappingService ??
                 throw new ArgumentNullException(nameof(propertyMappingService));
+
+            this.propertyCheckerService = propertyCheckerService ??
+                throw new ArgumentNullException(nameof(propertyMappingService));
         }
 
         [HttpGet(Name = "GetAuthors")]
         [HttpHead]
-        public ActionResult<IEnumerable<AuthorDto>> GetAuthors(
+        public IActionResult GetAuthors(
             [FromQuery] AuthorResourceParameters resourceParameters)
         {
             if (!propertyMappingService.ValidMappingExistsFor<AuthorDto, Author>
                 (resourceParameters.OrderBy))
+            {
+                return BadRequest();
+            }
+
+            if(!propertyCheckerService.TypeHasProperties<AuthorDto>
+                (resourceParameters.Fields))
             {
                 return BadRequest();
             }
@@ -67,16 +78,21 @@ namespace CourseLibrary.API.Controllers
             Response.Headers.Add("X-Pagination",
                 JsonSerializer.Serialize(paginationMetadata));
 
-            return Ok(mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo));
+            return Ok(mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo)
+                .ShapeData(resourceParameters.Fields));
         }
 
         [HttpGet]
         [Route("{authorId:guid}", Name = "GetAuthor")]
-        public IActionResult GetAuthors(Guid authorId)
+        public IActionResult GetAuthor(Guid authorId, string fields)
         {
+            if (!propertyCheckerService.TypeHasProperties<AuthorDto>(fields))
+                return BadRequest();
+
             var authorFromRepo = repository.GetAuthor(authorId);
 
-            return authorFromRepo == null ? NotFound() : Ok(mapper.Map<AuthorDto>(authorFromRepo));
+            return authorFromRepo == null ? NotFound() :
+                Ok(mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields));
         }
 
         [HttpPost]
@@ -125,17 +141,19 @@ namespace CourseLibrary.API.Controllers
                     return Url.Link("GetAuthors",
                         new
                         {
+                            fields = resourceParameters.Fields,
                             orderBy = resourceParameters.OrderBy,
                             pageNumber = resourceParameters.PageNumber - 1,
                             pageSize = resourceParameters.PageSize,
                             mainCategory = resourceParameters.MainCategory,
                             searchQuery = resourceParameters.SearchQuery
-                        }); ;
+                        });
 
                 case ResourseUriType.NextPage:
                     return Url.Link("GetAuthors",
                         new
                         {
+                            fields = resourceParameters.Fields,
                             orderBy = resourceParameters.OrderBy,
                             pageNumber = resourceParameters.PageNumber + 1,
                             pageSize = resourceParameters.PageSize,
@@ -147,6 +165,7 @@ namespace CourseLibrary.API.Controllers
                     return Url.Link("GetAuthors",
                          new
                          {
+                             fields = resourceParameters.Fields,
                              orderBy = resourceParameters.OrderBy,
                              pageNumber = resourceParameters.PageNumber,
                              pageSize = resourceParameters.PageSize,
