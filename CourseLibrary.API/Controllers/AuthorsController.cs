@@ -58,22 +58,12 @@ namespace CourseLibrary.API.Controllers
 
             var authorsFromRepo = repository.GetAuthors(resourceParameters);
 
-            var previousPageLink = authorsFromRepo.HasPrevious ?
-                CreateAuthorResourseUri(resourceParameters,
-                ResourseUriType.PreviousPage) : null;
-
-            var nextPageLink = authorsFromRepo.HasNext ?
-                CreateAuthorResourseUri(resourceParameters,
-                ResourseUriType.PreviousPage) : null;
-
             var paginationMetadata = new
             {
                 totalCount = authorsFromRepo.TotalCount,
                 pageSize = authorsFromRepo.PageSize,
                 currentPage = authorsFromRepo.CurrentPage,
-                totalPages = authorsFromRepo.TotalPages,
-                previousPageLink,
-                nextPageLink
+                totalPages = authorsFromRepo.TotalPages
             };
 
             Response.Headers.Add("X-Pagination",
@@ -81,20 +71,21 @@ namespace CourseLibrary.API.Controllers
 
 
             var shapedAuthors = mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo)
-                .ShapeData(resourceParameters.Fields);
+                .ShapeData(resourceParameters.Fields); // reminder : this is collection of ExpandoObjects
 
             var shapedAuthorsWithLinks = shapedAuthors.Select(author =>
             {
-                var authorAsDictionary = author as IDictionary<string, object>;
-                var authorLinks = CreateLinksForAuthor((Guid)authorAsDictionary["Id"], null);
-                authorAsDictionary.Add("links", authorLinks);
-                return authorAsDictionary;
+                (author as IDictionary<string, object>)
+                    .Add("links", CreateLinksForAuthor((Guid)(author as IDictionary<string, object>)["Id"], null));
+                return author as IDictionary<string, object>;
             });
 
             var linkedCollectionResource = new
             {
                 value = shapedAuthorsWithLinks,
-                links = CreateLinksForAuthors(resourceParameters)
+                links = CreateLinksForAuthors(resourceParameters,
+                                              authorsFromRepo.HasNext,
+                                              authorsFromRepo.HasPrevious)
             };
 
             return Ok(linkedCollectionResource);
@@ -123,7 +114,7 @@ namespace CourseLibrary.API.Controllers
             return Ok(linkedResourceToReturn);
         }
 
-        [HttpPost]
+        [HttpPost(Name = "CreateAuthor")]
         public ActionResult<AuthorDto> CreateAuthor(AuthorForCreationDto author)
         {
             var authorEntity = mapper.Map<Author>(author);
@@ -134,7 +125,7 @@ namespace CourseLibrary.API.Controllers
 
             var linkedResourceToReturn = authorToReturn.ShapeData(null)
                as IDictionary<string, object>;
-            
+
             linkedResourceToReturn.Add("links",
                 CreateLinksForAuthor(authorToReturn.Id, null));
 
@@ -233,18 +224,38 @@ namespace CourseLibrary.API.Controllers
         }
 
         private IEnumerable<LinkDto> CreateLinksForAuthors(
-            AuthorsResourceParameters resourceParameters)
+            AuthorsResourceParameters resourceParameters,
+            bool hasNext, bool hasPrevious)
         {
+            // Links for getting courses for authors, creating, or deleting aren't implemented 
 
-            return new List<LinkDto>
-            {
+            var links = new List<LinkDto>();
 
-                // self. Links for getting courses for authors, creating, or deleting aren't implemented 
-                new LinkDto(CreateAuthorResourseUri(
-                    resourceParameters, ResourseUriType.Current),
+            links.Add(// self
+            new LinkDto(CreateAuthorResourseUri(
+                resourceParameters, ResourseUriType.Current),
                 "self",
-                "GET")
-            };
+                "GET"));
+
+            if (hasNext)
+            {
+                links.Add(
+                    new LinkDto(CreateAuthorResourseUri(
+                        resourceParameters, ResourseUriType.NextPage),
+                        "nextPage",
+                        "GET"));
+            }
+
+            if (hasPrevious)
+            {
+                links.Add(
+                    new LinkDto(CreateAuthorResourseUri(
+                        resourceParameters, ResourseUriType.PreviousPage),
+                        "previousPage",
+                        "GET"));
+            }
+
+            return links;
         }
     }
 }
