@@ -5,6 +5,7 @@ using CourseLibrary.API.Models;
 using CourseLibrary.API.ResourceParameters;
 using CourseLibrary.API.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,8 +43,15 @@ namespace CourseLibrary.API.Controllers
         [HttpGet(Name = "GetAuthors")]
         [HttpHead]
         public IActionResult GetAuthors(
-            [FromQuery] AuthorsResourceParameters resourceParameters)
+            [FromQuery] AuthorsResourceParameters resourceParameters,
+            [FromHeader(Name = "Accept")] string mediaType)
         {
+            if (!MediaTypeHeaderValue.TryParse(mediaType,
+                out MediaTypeHeaderValue parsedMediaType))
+            {
+                return BadRequest();
+            }
+
             if (!propertyMappingService.ValidMappingExistsFor<AuthorDto, Author>
                 (resourceParameters.OrderBy))
             {
@@ -73,6 +81,10 @@ namespace CourseLibrary.API.Controllers
             var shapedAuthors = mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo)
                 .ShapeData(resourceParameters.Fields); // reminder : this is collection of ExpandoObjects
 
+            //Doesn't include links in the body
+            if (parsedMediaType.MediaType != "application/vnd.marvin.hateoas+json")
+                return Ok(shapedAuthors);
+
             var shapedAuthorsWithLinks = shapedAuthors.Select(author =>
             {
                 (author as IDictionary<string, object>)
@@ -89,13 +101,19 @@ namespace CourseLibrary.API.Controllers
             };
 
             return Ok(linkedCollectionResource);
-
         }
 
         [HttpGet]
         [Route("{authorId:guid}", Name = "GetAuthor")]
-        public IActionResult GetAuthor(Guid authorId, string fields)
+        public IActionResult GetAuthor(Guid authorId, string fields,
+            [FromHeader(Name = "Accept")] string mediaType)
         {
+            if (!MediaTypeHeaderValue.TryParse(mediaType,
+                out MediaTypeHeaderValue parsedMediaType))
+            {
+                return BadRequest();
+            }
+
             if (!propertyCheckerService.TypeHasProperties<AuthorDto>(fields))
                 return BadRequest();
 
@@ -108,8 +126,11 @@ namespace CourseLibrary.API.Controllers
                 mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields)
                 as IDictionary<string, object>;
 
-            linkedResourceToReturn.Add("links",
-                CreateLinksForAuthor(authorId, fields));
+            if (parsedMediaType.MediaType == "application/vnd.marvin.hateoas+json")
+            {
+                linkedResourceToReturn.Add("links",
+                    CreateLinksForAuthor(authorId, fields));
+            }
 
             return Ok(linkedResourceToReturn);
         }
@@ -142,7 +163,7 @@ namespace CourseLibrary.API.Controllers
             if (authorFromRepo == null)
                 return NotFound();
 
-            // CascadeOnDelete is on bt default; when we delete a author, his/her courses
+            // CascadeOnDelete is on by default; when we delete a author, his/her courses
             // will be deleted as will
             repository.DeleteAuthor(authorFromRepo);
             repository.Save();
@@ -153,7 +174,7 @@ namespace CourseLibrary.API.Controllers
         [HttpOptions]
         public IActionResult GetAuthorsOptions()
         {
-            Response.Headers.Add("Allow", "GET,OPTIONS,POST");
+            Response.Headers.Add("Allow", "GET,OPTIONS,POST, DELETE");
             return Ok();
         }
 
@@ -161,42 +182,22 @@ namespace CourseLibrary.API.Controllers
             AuthorsResourceParameters resourceParameters,
             ResourseUriType type)
         {
-            return type switch
-            {
-                ResourseUriType.PreviousPage => Url.Link("GetAuthors",
+            return Url.Link("GetAuthors",
                 new
                 {
                     fields = resourceParameters.Fields,
                     orderBy = resourceParameters.OrderBy,
-                    pageNumber = resourceParameters.PageNumber - 1,
-                    pageSize = resourceParameters.PageSize,
                     mainCategory = resourceParameters.MainCategory,
-                    searchQuery = resourceParameters.SearchQuery
-                }),
-
-                ResourseUriType.NextPage => Url.Link("GetAuthors",
-                new
-                {
-                    fields = resourceParameters.Fields,
-                    orderBy = resourceParameters.OrderBy,
-                    pageNumber = resourceParameters.PageNumber + 1,
+                    searchQuery = resourceParameters.SearchQuery,
                     pageSize = resourceParameters.PageSize,
-                    mainCategory = resourceParameters.MainCategory,
-                    searchQuery = resourceParameters.SearchQuery
-                }),
-
-                //Current Page and default case
-                _ => Url.Link("GetAuthors",
-                new
-                {
-                    fields = resourceParameters.Fields,
-                    orderBy = resourceParameters.OrderBy,
-                    pageNumber = resourceParameters.PageNumber,
-                    pageSize = resourceParameters.PageSize,
-                    mainCategory = resourceParameters.MainCategory,
-                    searchQuery = resourceParameters.SearchQuery
-                })
-            };
+                    pageNumber = type switch
+                    {
+                        ResourseUriType.PreviousPage => resourceParameters.PageNumber - 1,
+                        ResourseUriType.NextPage => resourceParameters.PageNumber + 1,
+                        //Current page
+                        _ => resourceParameters.PageNumber
+                    }
+                });
         }
 
         private IEnumerable<LinkDto> CreateLinksForAuthor(Guid authorId, string fields)
@@ -231,11 +232,12 @@ namespace CourseLibrary.API.Controllers
 
             var links = new List<LinkDto>();
 
-            links.Add(// self
-            new LinkDto(CreateAuthorResourseUri(
-                resourceParameters, ResourseUriType.Current),
-                "self",
-                "GET"));
+            links.Add(
+            // self
+             new LinkDto(CreateAuthorResourseUri(
+                 resourceParameters, ResourseUriType.Current),
+                 "self",
+                 "GET"));
 
             if (hasNext)
             {
