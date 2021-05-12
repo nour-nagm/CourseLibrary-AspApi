@@ -112,7 +112,7 @@ namespace CourseLibrary.API.Services
             return context.Authors.ToList();
         }
 
-        public PagedList<Author> GetAuthors(AuthorResourceParameters resourceParameters)
+        public PagedList<Author> GetAuthors(AuthorsResourceParameters resourceParameters)
         {
             if (resourceParameters == null)
                 throw new ArgumentNullException(nameof(resourceParameters));

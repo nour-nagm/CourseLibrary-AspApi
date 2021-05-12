@@ -1,6 +1,6 @@
 ﻿namespace CourseLibrary.API.ResourceParameters
 {
-    public class AuthorResourceParameters
+    public class AuthorsResourceParameters
     {
         const int maxPageSize = 20;
         int pageSize = 10;

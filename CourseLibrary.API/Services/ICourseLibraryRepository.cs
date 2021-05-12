@@ -15,7 +15,7 @@ namespace CourseLibrary.API.Services
         void DeleteCourse(Course course);
         
         IEnumerable<Author> GetAuthors();
-        PagedList<Author> GetAuthors(AuthorResourceParameters resourceParameters);
+        PagedList<Author> GetAuthors(AuthorsResourceParameters resourceParameters);
         Author GetAuthor(Guid authorId);
         IEnumerable<Author> GetAuthors(IEnumerable<Guid> authorIds);
         void AddAuthor(Author author);

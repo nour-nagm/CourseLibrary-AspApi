@@ -22,18 +22,18 @@ namespace CourseLibrary.API.Controllers
 
         public CoursesController(ICourseLibraryRepository repository, IMapper mapper)
         {
-            this.repository = repository ?? 
+            this.repository = repository ??
                 throw new ArgumentNullException(nameof(repository));
             this.mapper = mapper ??
                 throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpGet]
+        [HttpGet(Name = "GetCoursesForAuthor")]
         public ActionResult<IEnumerable<CourseDto>> GetCoursesForAuthor(Guid authorId)
         {
-            if(!repository.AuthorExists(authorId))
+            if (!repository.AuthorExists(authorId))
                 return NotFound();
-            
+
             var coursesForAuthorFromRepo = repository.GetCourses(authorId);
             return Ok(mapper.Map<IEnumerable<CourseDto>>(coursesForAuthorFromRepo));
         }
@@ -41,18 +41,18 @@ namespace CourseLibrary.API.Controllers
         [HttpGet("{courseId}", Name = "GetCourseForAuthor")]
         public ActionResult<CourseDto> GetCourseForAuthor(Guid authorId, Guid courseId)
         {
-            if(!repository.AuthorExists(authorId))
+            if (!repository.AuthorExists(authorId))
                 return NotFound();
-            
+
             var courseForAuthorFromRepo = repository.GetCourse(authorId, courseId);
 
-            if(courseForAuthorFromRepo == null)
+            if (courseForAuthorFromRepo == null)
                 return NotFound();
-            
+
             return Ok(mapper.Map<CourseDto>(courseForAuthorFromRepo));
         }
 
-        [HttpPost]
+        [HttpPost(Name = "CreateCourseForAuthor")]
         public ActionResult<CourseDto> CreateCourseForAuthor(Guid authorId, CourseForCreationDto course)
         {
             if (!repository.AuthorExists(authorId))
@@ -96,7 +96,7 @@ namespace CourseLibrary.API.Controllers
             // apply the updated field values to the dto
             // map the CourseForUpdateDto back to an entity
             mapper.Map(course, courseForAuthorFromRepo);
-            
+
             repository.UpdateCourse(courseForAuthorFromRepo);
 
             repository.Save();
@@ -150,7 +150,7 @@ namespace CourseLibrary.API.Controllers
             }
 
             var courseToPatch = mapper.Map<CourseForUpdateDto>(courseForAuthorFromRepo);
-            
+
             patchDocument.ApplyTo(courseToPatch, ModelState);
 
             if (!TryValidateModel(courseToPatch))
