@@ -103,6 +103,14 @@ namespace CourseLibrary.API.Controllers
             return Ok(linkedCollectionResource);
         }
 
+        // very tight, any other type will return 406 error
+        // we also could apply this attribute to the controller as a whole
+        [Produces("application/json",
+           "application/vnd.marvin.hateoas+json",
+           "application/vnd.marvin.author.full+json",
+           "application/vnd.marvin.author.full.hateoas+json",
+           "application/vnd.marvin.author.friendly+json",
+           "application/vnd.marvin.author.friendly.hateoas+json")] 
         [HttpGet]
         [Route("{authorId:guid}", Name = "GetAuthor")]
         public IActionResult GetAuthor(Guid authorId, string fields,
@@ -122,17 +130,37 @@ namespace CourseLibrary.API.Controllers
             if (authorFromRepo == null)
                 return NotFound();
 
-            var linkedResourceToReturn =
-                mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields)
-                as IDictionary<string, object>;
+            bool includeLinks = parsedMediaType.SubTypeWithoutSuffix
+                .EndsWith("hateoas", StringComparison.InvariantCultureIgnoreCase);
 
-            if (parsedMediaType.MediaType == "application/vnd.marvin.hateoas+json")
+            var primaryMediaType = includeLinks ?
+                parsedMediaType.SubTypeWithoutSuffix
+                .Substring(0, parsedMediaType.SubTypeWithoutSuffix.Length - 8) // cut HATEOAS sub type part if found. media type will "vnd.marvin.author.full" 
+                : parsedMediaType.SubTypeWithoutSuffix;
+
+            dynamic resourceToReturn; // will be resolved to ExpandoObject at runtime
+            if (primaryMediaType == "vnd.marvin.author.full")
             {
-                linkedResourceToReturn.Add("links",
-                    CreateLinksForAuthor(authorId, fields));
+                //full author
+                resourceToReturn = mapper
+                    .Map<AuthorFullDto>(authorFromRepo)
+                    .ShapeData(fields);
+            }
+            else
+            {
+                //friendly author
+                resourceToReturn = mapper
+                    .Map<AuthorDto>(authorFromRepo)
+                    .ShapeData(fields);
             }
 
-            return Ok(linkedResourceToReturn);
+            if (includeLinks)
+            {
+                (resourceToReturn as IDictionary<string, object>)
+                    .Add("links", CreateLinksForAuthor(authorId, fields));
+            }
+
+            return Ok(resourceToReturn);
         }
 
         [HttpPost(Name = "CreateAuthor")]
@@ -259,5 +287,7 @@ namespace CourseLibrary.API.Controllers
 
             return links;
         }
+
+       
     }
 }
