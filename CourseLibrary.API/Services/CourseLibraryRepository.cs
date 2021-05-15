@@ -136,11 +136,11 @@ namespace CourseLibrary.API.Services
             if (!string.IsNullOrWhiteSpace(resourceParameters.OrderBy))
             {
                 // get property mapping dictionary
-                var authorProperttMappingDictionary =
+                var authorPropertyMappingDictionary =
                     propertyMappingService.GetPropertyMapping<AuthorDto, Author>();
 
                 collection = collection.ApplySort(resourceParameters.OrderBy,
-                    authorProperttMappingDictionary);
+                    authorPropertyMappingDictionary);
             }
 
             return PagedList<Author>.Create(collection,

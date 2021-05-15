@@ -21,8 +21,7 @@ namespace CourseLibrary.API.Services
 
         public PropertyMappingService()
         {
-            propertyMappings
-                .Add(new PropertyMapping<AuthorDto, Author>(authorPropertyMapping));
+            propertyMappings.Add(new PropertyMapping<AuthorDto, Author>(authorPropertyMapping));
         }
 
         public bool ValidMappingExistsFor<TSource, TDestination>(string fields)

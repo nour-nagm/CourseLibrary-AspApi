@@ -2,7 +2,7 @@
 
 namespace CourseLibrary.API.Models
 {
-    public class AuthorForCreationDtoWithDateOfDeath : AuthorForCreationDto
+    public class AuthorForCreationWithDateOfDeathDto : AuthorForCreationDto
     {
         public DateTimeOffset? DateOfDeath { get; set; }
     }

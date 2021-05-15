@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using CourseLibrary.API.ActionConstraints;
 using CourseLibrary.API.Entities;
 using CourseLibrary.API.Helpers;
 using CourseLibrary.API.Models;
@@ -66,30 +67,33 @@ namespace CourseLibrary.API.Controllers
 
             var authorsFromRepo = repository.GetAuthors(resourceParameters);
 
-            var paginationMetadata = new
-            {
-                totalCount = authorsFromRepo.TotalCount,
-                pageSize = authorsFromRepo.PageSize,
-                currentPage = authorsFromRepo.CurrentPage,
-                totalPages = authorsFromRepo.TotalPages
-            };
 
             Response.Headers.Add("X-Pagination",
-                JsonSerializer.Serialize(paginationMetadata));
+                JsonSerializer.Serialize(new
+                {
+                    // pagination metadata
+                    totalCount = authorsFromRepo.TotalCount,
+                    pageSize = authorsFromRepo.PageSize,
+                    currentPage = authorsFromRepo.CurrentPage,
+                    totalPages = authorsFromRepo.TotalPages
+                }));
 
 
             var shapedAuthors = mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo)
                 .ShapeData(resourceParameters.Fields); // reminder : this is collection of ExpandoObjects
 
-            //Doesn't include links in the body
+            //Doesn't include links for each author neither the resource collection
             if (parsedMediaType.MediaType != "application/vnd.marvin.hateoas+json")
                 return Ok(shapedAuthors);
 
             var shapedAuthorsWithLinks = shapedAuthors.Select(author =>
             {
-                (author as IDictionary<string, object>)
-                    .Add("links", CreateLinksForAuthor((Guid)(author as IDictionary<string, object>)["Id"], null));
-                return author as IDictionary<string, object>;
+                var authorAsDictionary = author as IDictionary<string, object>;
+
+                authorAsDictionary.Add("links",
+                    CreateLinksForAuthor((Guid)authorAsDictionary["Id"], null));
+                
+                return authorAsDictionary;
             });
 
             var linkedCollectionResource = new
@@ -135,24 +139,17 @@ namespace CourseLibrary.API.Controllers
 
             var primaryMediaType = includeLinks ?
                 parsedMediaType.SubTypeWithoutSuffix
-                .Substring(0, parsedMediaType.SubTypeWithoutSuffix.Length - 8) // cut HATEOAS sub type part if found. media type will "vnd.marvin.author.full" 
+                .Substring(0, parsedMediaType.SubTypeWithoutSuffix.Length - 8) // cut HATEOAS sub type part if found. media type will "vnd.marvin.author.(full/friendly)" 
                 : parsedMediaType.SubTypeWithoutSuffix;
 
-            dynamic resourceToReturn; // will be resolved to ExpandoObject at runtime
-            if (primaryMediaType == "vnd.marvin.author.full")
+            dynamic resourceToReturn = primaryMediaType.Value switch // will be resolved to ExpandoObject at runtime
             {
                 //full author
-                resourceToReturn = mapper
-                    .Map<AuthorFullDto>(authorFromRepo)
-                    .ShapeData(fields);
-            }
-            else
-            {
-                //friendly author
-                resourceToReturn = mapper
-                    .Map<AuthorDto>(authorFromRepo)
-                    .ShapeData(fields);
-            }
+                "vnd.marvin.author.full" => mapper.Map<AuthorFullDto>(authorFromRepo).ShapeData(fields),
+
+                //friendly author, default case
+                _ => mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields)
+            };
 
             if (includeLinks)
             {
@@ -163,7 +160,37 @@ namespace CourseLibrary.API.Controllers
             return Ok(resourceToReturn);
         }
 
+        [HttpPost(Name = "CreateAuthorWithDateOfDeath")]
+        [RequestHeaderMatchesMediaType("Content-Type",
+           "application/vnd.marvin.authorforcreationwithdateofdeath+json")]
+        [Consumes("application/vnd.marvin.authorforcreationwithdateofdeath+json")]
+        public ActionResult<AuthorDto> CreateAuthorWithDateOfDeath(
+           AuthorForCreationWithDateOfDeathDto author)
+        {
+            var authorEntity = mapper.Map<Author>(author);
+            repository.AddAuthor(authorEntity);
+            repository.Save();
+
+            var authorToReturn = mapper.Map<AuthorDto>(authorEntity);
+
+            var linkedResourceToReturn = authorToReturn.ShapeData(null)
+               as IDictionary<string, object>;
+
+            linkedResourceToReturn.Add("links",
+                CreateLinksForAuthor(authorToReturn.Id, null));
+
+            return CreatedAtRoute("GetAuthor",
+                new { authorId = linkedResourceToReturn["Id"] },
+                linkedResourceToReturn);
+        }
+
         [HttpPost(Name = "CreateAuthor")]
+        [RequestHeaderMatchesMediaType("Content-Type",
+            "application/json",
+            "application/vnd.marvin.authorforcreation+json")]
+        [Consumes(
+            "application/json",
+            "application/vnd.marvin.authorforcreation+json")]
         public ActionResult<AuthorDto> CreateAuthor(AuthorForCreationDto author)
         {
             var authorEntity = mapper.Map<Author>(author);
@@ -202,7 +229,7 @@ namespace CourseLibrary.API.Controllers
         [HttpOptions]
         public IActionResult GetAuthorsOptions()
         {
-            Response.Headers.Add("Allow", "GET,OPTIONS,POST, DELETE");
+            Response.Headers.Add("Allow", "GET,OPTIONS,POST,DELETE");
             return Ok();
         }
 
@@ -258,14 +285,13 @@ namespace CourseLibrary.API.Controllers
         {
             // Links for getting courses for authors, creating, or deleting aren't implemented 
 
-            var links = new List<LinkDto>();
-
-            links.Add(
-            // self
-             new LinkDto(CreateAuthorResourseUri(
+            var links = new List<LinkDto>
+            {
+                new LinkDto(CreateAuthorResourseUri(
                  resourceParameters, ResourseUriType.Current),
                  "self",
-                 "GET"));
+                 "GET")
+            };
 
             if (hasNext)
             {

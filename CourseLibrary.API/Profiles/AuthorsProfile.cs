@@ -17,9 +17,10 @@ namespace CourseLibrary.API.Profiles
 
             CreateMap<Models.AuthorForCreationDto, Entities.Author>();
 
+            CreateMap<Models.AuthorForCreationWithDateOfDeathDto, Entities.Author>();
+
             CreateMap<Entities.Author, Models.AuthorFullDto>();
 
-            CreateMap<Models.AuthorForCreationDtoWithDateOfDeath, Entities.Author>();
         }
     }
 }
